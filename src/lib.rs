@@ -60,7 +60,7 @@ impl Device {
         future::block_on(async {
             let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
 
-            let adapters = instance.enumerate_adapters(wgpu::Backends::PRIMARY);
+            let adapters = instance.enumerate_adapters(wgpu::Backends::PRIMARY).await;
 
             let mut result: Vec<Self> = Vec::with_capacity(adapters.len());
 
@@ -150,7 +150,10 @@ impl<'t> Task<'t> {
 
         // Wait for all devices to finish.
         for device in self.workgroup.devices.iter() {
-            device.device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
+            device
+                .device
+                .poll(wgpu::PollType::wait_indefinitely())
+                .unwrap();
         }
 
         // Wait for all devices to send data back to CPU owned memory.
@@ -249,7 +252,7 @@ impl<'t> TaskBuilder<'t> {
                 device_ref.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: None,
                     bind_group_layouts: &[&bind_group_layout],
-                    push_constant_ranges: &[],
+                    immediate_size: 0,
                 });
 
             let pipeline = device_ref.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
