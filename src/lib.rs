@@ -370,10 +370,19 @@ impl<'t> TaskBuilder<'t> {
         let buf_len = buf.len();
 
         for (device_index, device) in self.workgroup.devices.iter_mut().enumerate() {
+            let mappable_primary_buffers =
+                device.features.contains(Features::MAPPABLE_PRIMARY_BUFFERS);
+
             let output_buffer = device.device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some(&format!("WSC_O{}", index)),
                 size: (buf_len * std::mem::size_of::<T>()) as wgpu::BufferAddress,
-                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+                usage: wgpu::BufferUsages::STORAGE
+                    | wgpu::BufferUsages::COPY_SRC
+                    | if mappable_primary_buffers {
+                        wgpu::BufferUsages::MAP_READ
+                    } else {
+                        wgpu::BufferUsages::empty()
+                    },
                 mapped_at_creation: false,
             });
 
@@ -391,6 +400,12 @@ impl<'t> TaskBuilder<'t> {
             self.output_buffers[device_index].push((output_buffer, output_layout_entry));
 
             // Staging buffer
+
+            if mappable_primary_buffers {
+                // No need for staging buffer because we are using the output buffer
+                // as a staging buffer.
+                continue;
+            }
 
             let staging_buffer = device.device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some(&format!("WSC_S{}", index)),
