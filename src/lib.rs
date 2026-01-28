@@ -5,17 +5,27 @@ use util::SlicePointerWriter;
 use futures_lite::future;
 use wgpu::{self, util::DeviceExt};
 
+pub use wgpu::Features;
 pub use wgpu::include_wgsl;
 
 pub struct Device {
     info: wgpu::AdapterInfo,
     _limits: wgpu::Limits,
+    features: wgpu::Features,
     device: wgpu::Device,
     queue: wgpu::Queue,
 }
 
 impl Device {
     pub fn best() -> Option<Self> {
+        Self::best_with_features(wgpu::Features::empty())
+    }
+
+    pub fn all() -> Vec<Self> {
+        Self::all_with_features(wgpu::Features::empty())
+    }
+
+    pub fn best_with_features(features: wgpu::Features) -> Option<Self> {
         future::block_on(async {
             let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
 
@@ -50,13 +60,14 @@ impl Device {
             Some(Self {
                 info: adapter.get_info(),
                 _limits: adapter.limits(),
+                features: device.features().intersection(features),
                 device,
                 queue,
             })
         })
     }
 
-    pub fn all() -> Vec<Self> {
+    pub fn all_with_features(features: wgpu::Features) -> Vec<Self> {
         future::block_on(async {
             let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
 
@@ -87,6 +98,7 @@ impl Device {
                     result.push(Self {
                         info: adapter.get_info(),
                         _limits: adapter.limits(),
+                        features: device.features().intersection(features),
                         device,
                         queue,
                     });
