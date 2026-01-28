@@ -1,0 +1,9 @@
+[package]
+name = "wisc"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bytemuck = "1.24"
+futures-lite = "2.6"
+wgpu = "27"
