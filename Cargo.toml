@@ -1,9 +1,10 @@
 [package]
 name = "wisc"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 
 [dependencies]
-bytemuck = "1.24"
+bytemuck = "1.25"
 futures-lite = "2.6"
+slotmap = "1.1.1"
 wgpu = "28"
