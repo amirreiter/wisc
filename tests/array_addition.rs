@@ -17,8 +17,8 @@ fn array_addition() {
     // Define our task and input our buffers.
     let task = TaskBuilder::new(&mut workgroup, include_wgsl!("./array_addition.wgsl"))
         .with_kernel("main")
-    // The shader is defined with workgroup size (256, 1, 1), so 4 * 256 invocations is
-    // enough to cover the length of our data (1024)
+        // The shader is defined with workgroup size (256, 1, 1), so 4 * 256 invocations is
+        // enough to cover the length of our data (1024)
         .with_size((4, 1, 1))
         .with_input_buffer(0, ibuf1, PartitionMode::Unmanaged)
         .with_input_buffer(1, ibuf2, PartitionMode::Unmanaged)
