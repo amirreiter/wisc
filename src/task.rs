@@ -7,16 +7,10 @@ use crate::prelude::Workgroup;
 use crate::vbuffer::VBuffer;
 use crate::workgroup::VBufferHandle;
 
-#[derive(Copy, Clone)]
-pub enum PartitionMode {
-    // Buffer is unmanaged across a workgroup. The entire buffer is given to each device.
-    Unmanaged,
-}
-
 pub struct Task<'t> {
     pub(crate) workgroup: &'t mut Workgroup,
 
-    pub(crate) output_buffers: Vec<(u32, VBufferHandle, PartitionMode)>,
+    pub(crate) output_buffers: Vec<(u32, VBufferHandle)>,
 
     pub(crate) staging_buffers: Vec<Vec<wgpu::Buffer>>,
     pub(crate) command_buffers: Vec<wgpu::CommandBuffer>,
@@ -43,13 +37,11 @@ impl<'t> Task<'t> {
         let mut staging_buffers: Vec<Vec<wgpu::Buffer>> = vec![vec![]; num_devices];
         let mut output_wgpu_buffers: Vec<Vec<wgpu::Buffer>> = vec![vec![]; num_devices];
 
-        for (id, key, mode) in &input_buffers {
+        for (id, key) in &input_buffers {
             let vbuffer = workgroup.vbuffers.get(*key)?;
 
             for (vdi, vd) in workgroup.vdevices.iter().enumerate() {
-                let byte_slice: &[u8] = match mode {
-                    PartitionMode::Unmanaged => vbuffer_bytes(vbuffer),
-                };
+                let byte_slice: &[u8] = vbuffer_bytes(vbuffer);
 
                 let label = format!("WISC Input Buffer {} (VDevice {})", id, vd.label);
 
@@ -77,7 +69,7 @@ impl<'t> Task<'t> {
             }
         }
 
-        for (id, key, mode) in &output_buffers {
+        for (id, key) in &output_buffers {
             let vbuffer = workgroup.vbuffers.get(*key)?;
 
             for (vdi, vd) in workgroup.vdevices.iter().enumerate() {
@@ -85,9 +77,7 @@ impl<'t> Task<'t> {
                     .features
                     .contains(wgpu::Features::MAPPABLE_PRIMARY_BUFFERS);
 
-                let byte_slice: &[u8] = match mode {
-                    PartitionMode::Unmanaged => vbuffer_bytes(vbuffer),
-                };
+                let byte_slice: &[u8] = vbuffer_bytes(vbuffer);
 
                 let label = format!("WISC Output Buffer {} (VDevice {})", id, vd.label);
 
@@ -268,21 +258,17 @@ impl<'t> Task<'t> {
         for (device_id, _device) in self.workgroup.vdevices.iter().enumerate() {
             for (output_index, staging_buffer) in self.staging_buffers[device_id].iter().enumerate()
             {
-                let Some((_, handle, mode)) = self.output_buffers.get(output_index) else {
+                let Some((_, handle)) = self.output_buffers.get(output_index) else {
                     continue;
                 };
                 let buffer_slice = staging_buffer.slice(..);
                 let data = buffer_slice.get_mapped_range();
                 let bytes: &[u8] = &data;
 
-                match mode {
-                    PartitionMode::Unmanaged => {
-                        if let Some(vbuffer) = self.workgroup.vbuffers.get_mut(*handle) {
-                            let dst = vbuffer_bytes_mut(vbuffer);
-                            let copy_len = dst.len().min(bytes.len());
-                            dst[..copy_len].copy_from_slice(&bytes[..copy_len]);
-                        }
-                    }
+                if let Some(vbuffer) = self.workgroup.vbuffers.get_mut(*handle) {
+                    let dst = vbuffer_bytes_mut(vbuffer);
+                    let copy_len = dst.len().min(bytes.len());
+                    dst[..copy_len].copy_from_slice(&bytes[..copy_len]);
                 }
 
                 drop(data);
@@ -298,8 +284,8 @@ pub struct TaskBuilder<'b> {
     pub(crate) kernel: Option<String>,
     pub(crate) size: Option<(u32, u32, u32)>,
 
-    pub(crate) input_buffers: Vec<(u32, VBufferHandle, PartitionMode)>,
-    pub(crate) output_buffers: Vec<(u32, VBufferHandle, PartitionMode)>,
+    pub(crate) input_buffers: Vec<(u32, VBufferHandle)>,
+    pub(crate) output_buffers: Vec<(u32, VBufferHandle)>,
 }
 
 impl<'b> TaskBuilder<'b> {
@@ -335,24 +321,14 @@ impl<'b> TaskBuilder<'b> {
         self
     }
 
-    pub fn with_input_buffer(
-        mut self,
-        id: u32,
-        handle: VBufferHandle,
-        partition_mode: PartitionMode,
-    ) -> Self {
-        self.input_buffers.push((id, handle, partition_mode));
+    pub fn with_input_buffer(mut self, id: u32, handle: VBufferHandle) -> Self {
+        self.input_buffers.push((id, handle));
 
         self
     }
 
-    pub fn with_output_buffer(
-        mut self,
-        id: u32,
-        handle: VBufferHandle,
-        partition_mode: PartitionMode,
-    ) -> Self {
-        self.output_buffers.push((id, handle, partition_mode));
+    pub fn with_output_buffer(mut self, id: u32, handle: VBufferHandle) -> Self {
+        self.output_buffers.push((id, handle));
 
         self
     }

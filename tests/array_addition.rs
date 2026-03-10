@@ -20,9 +20,9 @@ fn array_addition() {
         // The shader is defined with workgroup size (256, 1, 1), so 4 * 256 invocations is
         // enough to cover the length of our data (1024)
         .with_size((4, 1, 1))
-        .with_input_buffer(0, ibuf1, PartitionMode::Unmanaged)
-        .with_input_buffer(1, ibuf2, PartitionMode::Unmanaged)
-        .with_output_buffer(2, obuf1, PartitionMode::Unmanaged)
+        .with_input_buffer(0, ibuf1)
+        .with_input_buffer(1, ibuf2)
+        .with_output_buffer(2, obuf1)
         .build()
         .expect("Failed to build task");
 
