@@ -23,6 +23,7 @@ impl<'t> Task<'t> {
             shader,
             kernel,
             size,
+            overrides,
             input_buffers,
             output_buffers,
         } = builder;
@@ -161,6 +162,15 @@ impl<'t> Task<'t> {
                         immediate_size: 0,
                     });
 
+            let override_string_buffer: Vec<String> =
+                overrides.iter().map(|(id, _)| id.to_string()).collect();
+
+            let override_constants: Vec<(&str, f64)> = overrides
+                .iter()
+                .enumerate()
+                .map(|(i, (_, val))| (override_string_buffer[i].as_str(), *val))
+                .collect();
+
             let pipeline = vd
                 .device
                 .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
@@ -168,7 +178,10 @@ impl<'t> Task<'t> {
                     layout: Some(&pipeline_layout),
                     module: &vd.device.create_shader_module(shader.clone()),
                     entry_point: Some(kernel.as_str()),
-                    compilation_options: wgpu::PipelineCompilationOptions::default(),
+                    compilation_options: wgpu::PipelineCompilationOptions {
+                        constants: override_constants.as_ref(),
+                        zero_initialize_workgroup_memory: true,
+                    },
                     cache: None,
                 });
 
@@ -284,6 +297,7 @@ pub struct TaskBuilder<'b> {
     pub(crate) kernel: Option<String>,
     pub(crate) size: Option<(u32, u32, u32)>,
 
+    pub(crate) overrides: Vec<(u32, f64)>,
     pub(crate) input_buffers: Vec<(u32, VBufferHandle)>,
     pub(crate) output_buffers: Vec<(u32, VBufferHandle)>,
 }
@@ -296,6 +310,7 @@ impl<'b> TaskBuilder<'b> {
             kernel: None,
             size: None,
 
+            overrides: vec![],
             input_buffers: vec![],
             output_buffers: vec![],
         }
@@ -329,6 +344,12 @@ impl<'b> TaskBuilder<'b> {
 
     pub fn with_output_buffer(mut self, id: u32, handle: VBufferHandle) -> Self {
         self.output_buffers.push((id, handle));
+
+        self
+    }
+
+    pub fn with_override<N: Into<f64>>(mut self, id: u32, value: N) -> Self {
+        self.overrides.push((id, value.into()));
 
         self
     }

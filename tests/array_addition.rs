@@ -36,3 +36,46 @@ fn array_addition() {
 
     // Any buffers still managed by the runtime are freed automatically.
 }
+
+#[test]
+fn array_addition_safety() {
+    // Get all the hardware devices available to our system.
+    let devices = VDevice::all();
+
+    // Create a Workgroup out of our device(s).
+    let mut workgroup = Workgroup::from_devices(devices);
+
+    // Register our buffers with the runtime.
+    let ibuf1 = workgroup.create_vbuffer(vec![2u32; 1024]);
+    let ibuf2 = workgroup.create_vbuffer(vec![3u32; 1024]);
+    let obuf1 = workgroup.create_vbuffer(vec![0u32; 1024]);
+
+    // Define our task and input our buffers.
+    let task = TaskBuilder::new(&mut workgroup, include_wgsl!("./array_addition.wgsl"))
+        .with_kernel("main")
+        .with_size((4, 1, 1))
+        .with_input_buffer(0, ibuf1)
+        .with_input_buffer(1, ibuf2)
+        .with_output_buffer(2, obuf1)
+        .build()
+        .expect("Failed to build task");
+
+    // Block the current thread while the task runs.
+    task.run();
+
+    // Take ownership of the buffer from the runtime.
+    // Only the correct type decoding will yield Some(_), allowing access.
+    let maybe_obuf1_a: Option<Vec<f32>> = workgroup.take_vbuffer(obuf1);
+    let maybe_obuf1_b: Option<Vec<u64>> = workgroup.take_vbuffer(obuf1);
+    let maybe_obuf1_c: Option<Vec<u8>> = workgroup.take_vbuffer(obuf1);
+
+    let maybe_obuf1_d: Option<Vec<u32>> = workgroup.take_vbuffer(obuf1);
+
+    assert!(maybe_obuf1_a.is_none());
+    assert!(maybe_obuf1_b.is_none());
+    assert!(maybe_obuf1_c.is_none());
+
+    assert!(maybe_obuf1_d.is_some());
+
+    // Any buffers still managed by the runtime are freed automatically.
+}
